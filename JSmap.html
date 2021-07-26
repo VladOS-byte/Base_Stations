@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Позиционирование устройства графо-аналитическим метдом</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://api-maps.yandex.ru/2.0-stable/?apikey=61ce3ca3-9ef0-4030-b430-f3f5aec06714&load=package.full&lang=ru-RU" type="text/javascript"></script>
+    
+	<input type='file' id="file">
+	<pre id="file-content"></pre>
+    <div id="map" style="width: 1000px; height: 500px"></div>
+	<input type="button" value="DELETE DATA" id="destroyButton">
+</head>
+
+<body>
+	<script type="text/javascript">
+        ymaps.ready(init);
+        let myMap, 
+            collection,
+			myPoint,
+			myCircle;
+		let bases = [];
+		let x,p;
+		let s;
+		let b = true;
+		function openFile(e) {
+			let input = e.target.files[0];
+			let reader = new FileReader();
+			reader.onload = function(e){
+				x=e.target.result.split("\n");
+				s=x.pop();
+				paint(0,x.length/2);
+			}
+			reader.readAsText(input);
+		}
+		function paint(smesh,len){
+			bases.length=0;
+			for(let i = smesh;i<smesh+(len-1)/2;i++){
+				let inx = x[i].split(" ");
+				let base = {
+					CID: inx[0],
+					coords:{
+						x: inx[1], 
+						y: inx[2]
+					}
+				}
+				bases.push(base);
+			}
+			collection = new ymaps.GeoObjectCollection({},{geodesic: true});
+			for(let i=0;i<bases.length;i++){
+				let inx = x[i+bases.length+smesh].split(" ");
+				let base=bases[i];
+				base.R=inx[1];
+				base.deltaR=inx[2];
+				collection.add(new ymaps.Placemark([base.coords.x, base.coords.y],
+					{iconContent: "CID: " + base.CID},
+					{preset: 'twirl#redStretchyIcon'}));
+				collection.add(new ymaps.Circle([[base.coords.x, base.coords.y],
+					Number(base.R)
+				],{},{
+					geodesic: true,
+					fillColor: "#FFFFFF85",
+				}));
+				collection.add(new ymaps.Circle([[base.coords.x, base.coords.y],
+					Number(base.R)+Number(base.deltaR)
+				],{
+					hintContent: 'Zone '+base.CID
+				},{
+					
+					geodesic: true,
+					fillColor: "#00FF0040",
+					strokeWidth: 5
+				}));
+			}
+			myMap.geoObjects.add(new ymaps.Placemark([s.split(" ")[0],s.split(" ")[1]],
+					{iconContent: "Coordinates GPS: " + s.split(" ")[0]+" "+s.split(" ")[1]},{preset: 'twirl#redStretchyIcon'}));
+			myMap.geoObjects.add(collection);
+			myMap.setBounds(collection.getBounds());
+			let str = x[smesh+len-1].split(" ");
+			myCircle = new ymaps.Circle([[str[0], str[1]],
+				str[2]
+			],{},{
+				fillColor: "#00A2FF85",
+				visible:false
+			});
+			myPoint = new ymaps.Placemark([str[0], str[1]],
+				{hintContent: "Click to get information",
+				balloonContent: "Coordinates: " +str[0]+" "+str[1]+"\n"+"Radius: " + str[2]+"m"},
+				{preset: 'twirl#redStretchyIcon',visible:false});
+			if(str[0]!=NaN && str[0]!=0 && str[1]!=NaN && str[1]!=0){
+				myMap.geoObjects.add(myCircle);
+				myMap.geoObjects.add(myPoint);
+				myMap.setCenter([str[0], str[1]]);
+			}
+		}
+		
+        function init(){ 
+            myMap = new ymaps.Map ('map', {
+                center: [60.055285, 30.3095742],
+				zoom: 14
+            }); 
+			myMap.behaviors.enable("scrollZoom");
+			myMap.controls.add('scaleLine');
+			myMap.controls.add('zoomControl', {left:7, top:37});
+			myMap.controls.add('mapTools');
+			let button1 = new ymaps.control.Button({data:{content: 'Yandex'}},{selectOnClick: false});
+			let button2 = new ymaps.control.Button({data:{content: 'Google'}},{selectOnClick: false});
+			let button3 = new ymaps.control.Button({data:{content: 'Bases'}},{selectOnClick: false});
+			myMap.controls.add(button1, {right: 5, top: 5});
+			myMap.controls.add(button2, {right: 6, top: 40});
+			myMap.controls.add(button3, {right: 9, top: 75});
+			button1.events.add('click', yandexCoords);
+			button2.events.add('click', googleCoords);
+			button3.events.add('click', function(){
+				b=!b;
+				collection.options.set('visible',b);
+				myPoint.options.set('visible',!b);
+				myCircle.options.set('visible',!b);
+			});
+        }
+		/*function paintP(){
+			p.pop();
+			for(let i=0; i<p.length;i++){
+				let s=p[i].split(" ");
+				myMap.geoObjects.add(new ymaps.Placemark([s[0], s[1]],{}));
+			}
+		}
+		function openFileP(e){
+			let input = e.target.files[0];
+			let reader = new FileReader();
+			reader.onload = function(e){
+				p=e.target.result.split("\n");
+				paintP();
+			}
+			reader.readAsText(input);
+		}*/
+		document.getElementById('file').addEventListener('change', openFile, false);
+		//document.getElementById('filePOINT').addEventListener('change', openFileP, false);
+		document.getElementById('destroyButton').onclick = function(){
+			myMap.destroy();
+			init();
+		};
+		function yandexCoords(){
+			myMap.destroy();
+			init();
+			return paint(0,x.length/2);
+		}
+		function googleCoords(){
+			myMap.destroy();
+			init();
+			return paint(x.length/2,x.length/2);
+		}
+    </script>
+</body>
+
+</html>
